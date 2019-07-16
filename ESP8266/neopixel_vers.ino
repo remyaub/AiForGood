@@ -1,8 +1,11 @@
 #include <ESP8266WiFi.h>
 #include <WiFiClientSecure.h>
+#include <ESP8266WiFiMulti.h>
+#include <ESP8266mDNS.h>    
 #include "SdsDustSensor.h"
 #include <ArduinoJson.h>
 #include <ESP8266HTTPClient.h>
+
 #include <WifiLocation.h>
 #include <Adafruit_NeoPixel.h>
 
@@ -14,16 +17,21 @@ int rxPin = 14;
 int txPin = 12;
 SdsDustSensor sds(rxPin, txPin);
 String readString;
-
+/////////////////////////////////////////////////////////////
 const char* ssid = "";
 const char* password = "";
-
-
-
+////////////////////////////////////////////////////////////
+const char* ssid1 = "";
+const char* password1 = "";
+/////////////////////////////////////////////////////////////
+const char* ssid2 = "";
+const char* password2 = "";
+////////////////////////////////////////////////////////////
 const char* device_name = "";                                        // Set your device name !!!!!
 
 const char* googleApiKey = "";
 const char* host="http://jsonplaceholder.typicode.com/";
+////////////////////////////////////////////////////////////
 
 double pm2_5;
 double pm10;
@@ -40,27 +48,34 @@ int i;
 
 WifiLocation location(googleApiKey);
 WiFiServer server(80);
+ESP8266WiFiMulti wifiMulti;
 
 void setup()                                                     //SETUP Start
 {
-  Serial.begin(115200);
-  Serial.println();
-  Serial.print("Connecting to wifi: ");
-  Serial.println(ssid);
-  // flush() is needed to print the above (connecting...) message reliably,
-  // in case the wireless connection doesn't go through
-  Serial.flush();
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
+  Serial.begin(115200);         // Start the Serial communication to send messages to the computer
+  delay(10);
+  Serial.println('\n');
 
-while (WiFi.status() != WL_CONNECTED) {
-  delay(500);
-  Serial.print(".");
+  wifiMulti.addAP(ssid, password);   // add Wi-Fi networks you want to connect to
+  wifiMulti.addAP(ssid1, password1);
+  wifiMulti.addAP(ssid2, password2);
+
+  Serial.println("Connecting ...");
+  int i = 0;
+  while (wifiMulti.run() != WL_CONNECTED) { // Wait for the Wi-Fi to connect: scan for Wi-Fi networks, and connect to the strongest of the networks above
+    delay(1000);
+    Serial.print(++i); Serial.print(' ');
   }
-  Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
+  Serial.println('\n');
+  Serial.print("Connected to ");
+  Serial.println(WiFi.SSID());              // Tell us what network we're connected to
+  Serial.print("IP address:\t");
+  Serial.println(WiFi.localIP());           // Send the IP address of the ESP8266 to the computer
+
+  if (!MDNS.begin("esp8266")) {             // Start the mDNS responder for esp8266.local
+    Serial.println("Error setting up MDNS responder!");
+  }
+  Serial.println("mDNS responder started");
   sds.begin();
   Serial.println(sds.queryFirmwareVersion().toString()); // prints firmware version
   Serial.println(sds.setActiveReportingMode().toString()); // ensures sensor is in 'active' reporting mode
