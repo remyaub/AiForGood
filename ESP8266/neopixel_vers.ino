@@ -5,7 +5,6 @@
 #include "SdsDustSensor.h"
 #include <ArduinoJson.h>
 #include <ESP8266HTTPClient.h>
-
 #include <WifiLocation.h>
 #include <Adafruit_NeoPixel.h>
 
@@ -52,10 +51,15 @@ ESP8266WiFiMulti wifiMulti;
 
 void setup()                                                     //SETUP Start
 {
+  
   Serial.begin(115200);         // Start the Serial communication to send messages to the computer
   delay(10);
   Serial.println('\n');
 
+  strip.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
+  strip.show();            // Turn OFF all pixels ASAP
+  strip.setBrightness(50); // Set BRIGHTNESS to about 1/5 (max = 255)
+  
   wifiMulti.addAP(ssid, password);   // add Wi-Fi networks you want to connect to
   wifiMulti.addAP(ssid1, password1);
   wifiMulti.addAP(ssid2, password2);
@@ -76,7 +80,7 @@ void setup()                                                     //SETUP Start
     Serial.println("Error setting up MDNS responder!");
   }
   Serial.println("mDNS responder started");
-  sds.begin();
+  
   Serial.println(sds.queryFirmwareVersion().toString()); // prints firmware version
   Serial.println(sds.setActiveReportingMode().toString()); // ensures sensor is in 'active' reporting mode
   Serial.println(sds.setContinuousWorkingPeriod().toString()); // ensures sensor has continuous working period - default but not recommended
@@ -84,7 +88,9 @@ void setup()                                                     //SETUP Start
   pinMode(13, INPUT_PULLUP);
   pinMode(2, INPUT_PULLUP);
   
+  MDNS.addService("http", "tcp", 80);
   server.begin();
+  sds.begin();  
   
   while (WiFi.status() != WL_CONNECTED) {
     
@@ -100,7 +106,7 @@ void setup()                                                     //SETUP Start
 
 void loop()                                                   // Loop start
 {
-
+MDNS.update();
 PmResult pm = sds.queryPm();
   if (pm.isOk()) {
     pm2_5 = pm.pm25;
@@ -119,7 +125,7 @@ while (i >= 20)
   location_t loc = location.getGeoFromWiFi(); //get location with google api
   lat1 = String(loc.lat, 7) ;
   long2 = String(loc.lon, 7) ;
-  sendData(value1, value2, sensorVal1, sensorVal2, sensorVal3, String(loc.lat, 7), String(loc.lon, 7));
+  //sendData(value1, value2, sensorVal1, sensorVal2, sensorVal3, String(loc.lat, 7), String(loc.lon, 7));
   updateLed(value1, value2);
   value1 = 0; 
   value2 = 0; 
@@ -132,7 +138,26 @@ WiFiClient client = server.available();
   {
   return;
   }
-   // Prepare the response
+
+  delay(500);
+  // Read the first line of HTTP request
+  String req = client.readStringUntil('\r');
+
+  // First line of HTTP request looks like "GET /path HTTP/1.1"
+  // Retrieve the "/path" part by finding the spaces
+  int addr_start = req.indexOf(' ');
+  int addr_end = req.indexOf(' ', addr_start + 1);
+  
+  if (addr_start == -1 || addr_end == -1) {
+    Serial.print("Invalid request: ");
+    Serial.println(req);
+    return;
+  }
+  req = req.substring(addr_start + 1, addr_end);
+  Serial.print("Request: ");
+  Serial.println(req);
+ 
+  IPAddress ip = WiFi.localIP();
    
 //  String s = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n <!DOCTYPE html> <html> <head> <title>GPS Interfacing with NodeMCU</title> <style>";
 //  String s = "<html lang='fr'><head><meta http-equiv='refresh' content='60' name='viewport' content='width=device-width, initial-scale=1'/>";
@@ -205,7 +230,7 @@ s += long2;
 s += "'target=''_top'>";
 s += "Click here!</a> To check the location in Google maps.</p>";
 s += "</body> </html> \n";
-
+ 
   String request = client.readStringUntil('\r');
   client.flush();
 
@@ -225,6 +250,7 @@ s += "</body> </html> \n";
   client.print(s);
   delay(100);
 }
+
 
 void sendData(double z, double k, int a, int b, int c, String d, String e)
 {
@@ -275,10 +301,10 @@ void updateLed(double a, double b)     //Function UpdateOled Pm value
   int myInt = (int) a;
   switch(myInt)
   {
-  case 0 ... 9:
+  case 0 ... 10
     strip.setPixelColor(0, strip.Color(0, 128, 0)); 
   break;
-  case 10 ... 20:
+  case 11 ... 20:
     strip.setPixelColor(0, strip.Color(255, 165, 0));
   break;
   case  21 ... 30: 
