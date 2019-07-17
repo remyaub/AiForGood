@@ -301,7 +301,7 @@ void updateLed(double a, double b)     //Function UpdateOled Pm value
   int myInt = (int) a;
   switch(myInt)
   {
-  case 0 ... 10
+    case 0 ... 10:
     strip.setPixelColor(0, strip.Color(0, 128, 0)); 
   break;
   case 11 ... 20:
